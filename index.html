@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>덕질 아카이브 (Duck Archive OS)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Inter & Noto Sans KR) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans KR', 'sans-serif'],
+                    },
+                    colors: {
+                        mac: {
+                            red: '#FF5F56',
+                            yellow: '#FFBD2E',
+                            green: '#27C93F',
+                            dark: '#1E1E2E',
+                            glass: 'rgba(255, 255, 255, 0.15)',
+                            glassDark: 'rgba(20, 20, 30, 0.65)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+            user-select: none;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0f172a 0%, #311042 40%, #1e1b4b 70%, #090d16 100%);
+            background-size: 200% 200%;
+            animation: gradientBg 15s ease infinite;
+        }
+
+        @keyframes gradientBg {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Glassmorphism Styles */
+        .mac-glass {
+            background: rgba(30, 32, 48, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .mac-glass-light {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .dock-item {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .dock-item:hover {
+            transform: translateY(-10px) scale(1.2);
+        }
+
+        /* Window animations */
+        .window-appear {
+            animation: windowPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes windowPop {
+            0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* Desktop Icon Hover Effect */
+        .desktop-icon-btn {
+            transition: all 0.2s ease;
+        }
+        .desktop-icon-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen relative overflow-hidden text-slate-100">
+
+    <header class="h-8 w-full bg-slate-950/60 backdrop-blur-md border-b border-white/10 px-4 flex items-center justify-between text-xs font-medium z-50 fixed top-0 left-0">
+        <div class="flex items-center space-x-4">
+            <span class="hover:text-pink-400 cursor-pointer transition flex items-center gap-1.5 font-bold">
+                <i class="fa-solid fa-heart text-pink-500"></i> 덕질 Archive
+            </span>
+            <!-- 중복되는 상단 메뉴바 버튼 제거됨 (하단 Dock으로 일원화) -->
+        </div>
+        <div class="flex items-center space-x-3">
+            <button onclick="toggleSpotlight()" class="hover:bg-white/10 px-2 py-0.5 rounded transition flex items-center gap-1.5 text-slate-300">
+                <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
+                <span>검색</span>
+            </button>
+            <span id="current-time" class="text-slate-300 font-mono">2026.09.09 (수) 17:30</span>
+        </div>
+    </header>
+
+    <main class="w-full h-full pt-8 pb-20 relative px-4 overflow-hidden flex flex-col justify-between">
+        
+        <!-- Center Watermark / Intro text -->
+        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-20 text-center">
+            <i class="fa-solid fa-compact-disc text-8xl mb-4 text-purple-300 animate-spin-slow"></i>
+            <h1 class="text-3xl font-extrabold tracking-widest uppercase">My Fan Life Archive</h1>
+            <p class="text-sm mt-2 font-light">나만의 소중한 덕질 순간들을 마이그레이션하세요</p>
+        </div>
+
+        <!-- 바탕화면 최애별 폴더/아이콘 레이아웃 -->
+        <div id="desktop-icons" class="absolute top-12 left-6 z-10 flex flex-col flex-wrap gap-4 max-h-[calc(100vh-140px)] select-none">
+            <!-- Dynamic favorite icons will be injected here -->
+        </div>
+
+        <!-- WINDOW 1: ARCHIVE FINDER -->
+        <div id="archive-window" class="window-appear absolute top-12 left-1/2 -translate-x-1/2 w-[92%] max-w-5xl h-[80vh] mac-glass rounded-2xl shadow-2xl flex flex-col z-20 overflow-hidden border border-white/20">
+            <!-- Window Header -->
+            <div class="h-10 bg-slate-900/80 px-4 flex items-center justify-between border-b border-white/10 cursor-move" id="archive-header">
+                <div class="flex items-center space-x-2">
+                    <button onclick="closeWindow('archive-window')" class="w-3 h-3 rounded-full bg-mac-red hover:opacity-80 flex items-center justify-center group text-[8px] text-black">
+                        <i class="fa-solid fa-xmark opacity-0 group-hover:opacity-100"></i>
+                    </button>
+                    <button onclick="minimizeWindow('archive-window')" class="w-3 h-3 rounded-full bg-mac-yellow hover:opacity-80 flex items-center justify-center group text-[8px] text-black">
+                        <i class="fa-solid fa-minus opacity-0 group-hover:opacity-100"></i>
+                    </button>
+                    <button onclick="maximizeWindow('archive-window')" class="w-3 h-3 rounded-full bg-mac-green hover:opacity-80 flex items-center justify-center group text-[8px] text-black">
+                        <i class="fa-solid fa-expand opacity-0 group-hover:opacity-100"></i>
+                    </button>
+                </div>
+                <div class="text-xs font-semibold text-slate-300 flex items-center gap-2">
+                    <i class="fa-regular fa-folder text-pink-400"></i>
+                    덕질 아카이브 파인더
+                </div>
+                <div class="w-12"></div> <!-- Spacer for symmetry -->
+            </div>
+
+            <!-- Toolbar & Controls -->
+            <div class="p-3 bg-slate-900/50 border-b border-white/10 flex flex-wrap gap-2 items-center justify-between">
+                <!-- Search Box -->
+                <div class="relative flex-1 min-w-[180px]">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="archive-search" placeholder="제목, 키워드, 메모 검색... (예: #셀카, 비하인드)" 
+                        oninput="filterArchives()"
+                        class="w-full bg-slate-950/50 border border-white/10 rounded-xl pl-8 pr-4 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500/80 transition">
+                </div>
+
+                <!-- Filter Controls -->
+                <div class="flex items-center space-x-2">
+                    <!-- 최애 대상 필터 추가 -->
+                    <select id="filter-favorite" onchange="filterArchives()" class="bg-slate-950/50 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-slate-300 focus:outline-none">
+                        <option value="ALL">전체 덕질 대상</option>
+                    </select>
+
+                    <input type="date" id="filter-date" onchange="filterArchives()" class="bg-slate-950/50 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-slate-300 focus:outline-none">
+                    
+                    <select id="filter-category" onchange="filterArchives()" class="bg-slate-950/50 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-slate-300 focus:outline-none">
+                        <option value="ALL">전체 카테고리</option>
+                        <option value="인스타 업로드">📸 인스타 업로드</option>
+                        <option value="트위터 업로드">🐦 트위터 업로드</option>
+                        <option value="유튜브 업로드">▶️ 유튜브 업로드</option>
+                        <option value="위버스/공식팬카페">💬 위버스/공카</option>
+                        <option value="기타">✨ 기타</option>
+                    </select>
+
+                    <button onclick="resetFilters()" class="p-1.5 text-slate-400 hover:text-white bg-slate-800/60 rounded-xl hover:bg-slate-700 transition" title="필터 초기화">
+                        <i class="fa-solid fa-rotate-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Content Split View -->
+            <div class="flex-1 flex overflow-hidden">
+                <!-- Sidebar -->
+                <aside class="w-48 bg-slate-950/40 border-r border-white/10 p-3 hidden sm:flex flex-col space-y-4">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">즐겨찾기 태그</p>
+                        <div class="space-y-1" id="sidebar-tags">
+                            <!-- Popular Tags populated dynamically -->
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">데이터 관리</p>
+                        <div class="space-y-1">
+                            <button onclick="exportData()" class="w-full text-left px-2 py-1.5 rounded-lg text-xs hover:bg-white/10 transition text-slate-300 flex items-center gap-2">
+                                <i class="fa-solid fa-download text-pink-400"></i> 백업 다운로드
+                            </button>
+                            <label class="w-full text-left px-2 py-1.5 rounded-lg text-xs hover:bg-white/10 transition text-slate-300 flex items-center gap-2 cursor-pointer">
+                                <i class="fa-solid fa-upload text-purple-400"></i> 데이터 불러오기
+                                <input type="file" onchange="importData(event)" accept=".json" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Main Grid Display Area -->
+                <div class="flex-1 p-4 overflow-y-auto">
+                    <div id="archive-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        <!-- Dynamic Item Cards insert here -->
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="empty-state" class="hidden h-full flex flex-col items-center justify-center text-center p-8 text-slate-400">
+                        <i class="fa-regular fa-folder-open text-5xl mb-3 text-slate-600"></i>
+                        <p class="text-sm font-medium">검색 결과가 없거나 등록된 덕질 기록이 없습니다.</p>
+                        <p class="text-xs text-slate-500 mt-1">'새 기록 추가' 버튼을 눌러 첫 번째 추억을 저장해보세요!</p>
+                        <button onclick="openWindow('upload-window')" class="mt-4 px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-xs font-bold transition shadow-lg">
+                            기록 작성하러 가기
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WINDOW 2: UPLOAD MEMORY MODAL -->
+        <div id="upload-window" class="window-appear hidden absolute top-16 left-1/2 -translate-x-1/2 w-[90%] max-w-xl mac-glass rounded-2xl shadow-2xl flex flex-col z-30 overflow-hidden border border-white/20">
+            <!-- Header -->
+            <div class="h-10 bg-slate-900/80 px-4 flex items-center justify-between border-b border-white/10 cursor-move" id="upload-header">
+                <div class="flex items-center space-x-2">
+                    <button onclick="closeWindow('upload-window')" class="w-3 h-3 rounded-full bg-mac-red hover:opacity-80 flex items-center justify-center group text-[8px] text-black">
+                        <i class="fa-solid fa-xmark opacity-0 group-hover:opacity-100"></i>
+                    </button>
+                    <button onclick="closeWindow('upload-window')" class="w-3 h-3 rounded-full bg-mac-yellow hover:opacity-80 flex items-center justify-center group text-[8px] text-black">
+                        <i class="fa-solid fa-minus opacity-0 group-hover:opacity-100"></i>
+                    </button>
+                </div>
+                <div class="text-xs font-semibold text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up text-purple-400"></i>
+                    새 덕질 순간 아카이빙
+                </div>
+                <div class="w-8"></div>
+            </div>
+
+            <!-- Form Container -->
+            <form id="upload-form" onsubmit="handleUpload(event)" class="p-5 space-y-4 text-xs overflow-y-auto max-h-[80vh]">
+                <!-- 덕질 대상(최애) 선택 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-300 font-semibold mb-1">덕질 대상 (최애) *</label>
+                        <select id="item-favorite" required class="w-full bg-slate-950/60 border border-white/10 rounded-xl p-2.5 text-slate-100 focus:outline-none focus:border-pink-500 transition">
+                            <!-- Dynamic favorites dropdown -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 font-semibold mb-1">카테고리</label>
+                        <select id="item-category" class="w-full bg-slate-950/60 border border-white/10 rounded-xl p-2.5 text-slate-100 focus:outline-none focus:border-pink-500 transition">
+                            <option value="인스타 업로드">📸 인스타 업로드</option>
+                            <option value="트위터 업로드">🐦 트위터 업로드</option>
+                            <option value="유튜브 업로드">▶️ 유튜브 업로드</option>
+                            <option value="위버스/공식팬카페">💬 위버스/공카</option>
+                            <option value="기타">✨ 기타</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- YouTube Link -->
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1.5">게시물 / 원본 링크 (선택 - 유튜브 입력 시 썸네일 자동 추출)</label>
+                    <input type="text" id="item-youtube-link" placeholder="예: 인스타, 트위터, 유튜브 링크 (https://...)" oninput="handlePostLink(this.value)"
+                        class="w-full bg-slate-950/60 border border-white/10 rounded-xl p-2.5 text-slate-100 focus:outline-none focus:border-pink-500 transition mb-2">
+                </div>
+
+                <!-- Image Drag & Drop / File Input -->
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1.5">또는 직접 사진/이미지 파일 업로드 *</label>
+                    <div id="drop-zone" onclick="document.getElementById('file-input').click()" 
+                        class="border-2 border-dashed border-white/20 rounded-xl p-4 text-center cursor-pointer hover:border-pink-500/50 hover:bg-white/5 transition relative flex flex-col items-center justify-center min-h-[140px]">
+                        <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                        <div id="preview-container" class="hidden w-full h-40 relative rounded-lg overflow-hidden border border-white/10">
+                            <img id="image-preview" class="w-full h-full object-cover" src="" alt="미리보기">
+                            <button type="button" onclick="removeImage(event)" class="absolute top-2 right-2 bg-black/60 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-black/80 transition">
+                                <i class="fa-solid fa-xmark text-xs"></i>
+                            </button>
+                        </div>
+                        <div id="upload-prompt" class="space-y-1">
+                            <i class="fa-solid fa-image text-3xl text-pink-400 mb-1"></i>
+                            <p class="text-slate-200 font-medium">클릭하거나 사진을 이곳에 드래그하세요</p>
+                            <p class="text-[10px] text-slate-400">JPG, PNG, GIF 지원</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Title & Date -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-300 font-semibold mb-1">제목 *</label>
+                        <input type="text" id="item-title" required placeholder="예: 인스타 업로드 사진" 
+                            class="w-full bg-slate-950/60 border border-white/10 rounded-xl p-2.5 text-slate-100 focus:outline-none focus:border-pink-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 font-semibold mb-1">날짜 *</label>
+                        <input type="date" id="item-date" required 
+                            class="w-full bg-slate-950/60 border border-white/10 rounded-xl p-2.5 text-slate-100 focus:outline-none focus:border-pink-500 transition">
+                    </div>
+                </div>
+
+                <!-- Keywords (Tags) -->
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">키워드 (쉼표로 구분)</label>
+                    <input type="text" id="item-keywords" placeholder="예: 셀카, 비하인드, 최애" 
+                        class="w-full bg-slate-950/60 border border-white/10 rounded-xl p-2.5 text-slate-100 focus:outline-none focus:border-pink-500 transition">
+                </div>
+
+                <!-- Notes -->
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">상세 추억/메모</label>
+                    <textarea id="item-notes" rows="3" placeholder="그날의 감동이나 기억하고 싶은 소중한 순간을 적어보세요..." 
+                        class="w-full bg-slate-950/60 border border-white/10 rounded-xl p-2.5 text-slate-100 focus:outline-none focus:border-pink-500 transition resize-none"></textarea>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="pt-2 flex justify-end space-x-2">
+                    <button type="button" onclick="closeWindow('upload-window')" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition">취소</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 font-bold text-white shadow-lg hover:brightness-110 transition">아카이브에 저장</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- WINDOW 3: ITEM DETAIL VIEW / LIGHTBOX -->
+        <div id="detail-window" class="window-appear hidden absolute top-12 left-1/2 -translate-x-1/2 w-[92%] max-w-3xl mac-glass rounded-2xl shadow-2xl flex flex-col z-40 overflow-hidden border border-white/20">
+            <div class="h-10 bg-slate-900/80 px-4 flex items-center justify-between border-b border-white/10 cursor-move">
+                <div class="flex items-center space-x-2">
+                    <button onclick="closeWindow('detail-window')" class="w-3 h-3 rounded-full bg-mac-red hover:opacity-80 flex items-center justify-center group text-[8px] text-black">
+                        <i class="fa-solid fa-xmark opacity-0 group-hover:opacity-100"></i>
+                    </button>
+                </div>
+                <div class="text-xs font-semibold text-slate-300" id="detail-header-title">아카이브 상세보기</div>
+                <button onclick="deleteCurrentItem()" class="text-xs text-red-400 hover:text-red-300 transition flex items-center gap-1">
+                    <i class="fa-solid fa-trash-can"></i> 삭제
+                </button>
+            </div>
+            <div class="p-6 flex flex-col md:flex-row gap-6 overflow-y-auto max-h-[75vh]">
+                <div class="w-full md:w-1/2 rounded-xl overflow-hidden bg-black/40 border border-white/10 flex items-center justify-center max-h-96">
+                    <img id="detail-img" src="" class="max-h-full w-auto object-contain" alt="상세 사진">
+                </div>
+                <div class="w-full md:w-1/2 space-y-4 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-1.5">
+                                <span id="detail-favorite" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">덕질 대상</span>
+                                <span id="detail-category" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30">카테고리</span>
+                            </div>
+                            <span id="detail-date" class="text-xs font-mono text-slate-400"><i class="fa-regular fa-calendar mr-1"></i> 2026.00.00</span>
+                        </div>
+                        <h2 id="detail-title" class="text-xl font-bold text-slate-100 mb-2">기록 제목</h2>
+                        
+                        <a id="detail-link" href="#" target="_blank" class="hidden inline-flex items-center gap-1.5 mb-3 text-[11px] font-semibold text-pink-400 hover:text-pink-300 transition bg-pink-500/10 px-2.5 py-1 rounded-lg w-fit">
+                            <i id="detail-link-icon" class="fa-brands fa-youtube"></i>
+                            <span id="detail-link-text">원문 링크 보러가기</span>
+                        </a>
+
+                        <div id="detail-tags" class="flex flex-wrap gap-1.5 mb-4">
+                            <!-- Tags will be dynamically injected -->
+                        </div>
+
+                        <div class="bg-slate-950/40 border border-white/10 rounded-xl p-3">
+                            <p class="text-[11px] font-semibold text-slate-400 mb-1">메모</p>
+                            <p id="detail-notes" class="text-xs text-slate-200 whitespace-pre-line leading-relaxed">상세 메모 내용</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-white/10 flex justify-end">
+                        <button onclick="closeWindow('detail-window')" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium transition">닫기</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WINDOW 4: FAVORITE MANAGEMENT MODAL -->
+        <div id="favorite-modal" class="window-appear hidden absolute top-16 left-1/2 -translate-x-1/2 w-[90%] max-w-md mac-glass rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden border border-white/20">
+            <div class="h-10 bg-slate-900/80 px-4 flex items-center justify-between border-b border-white/10 cursor-move">
+                <div class="flex items-center space-x-2">
+                    <button onclick="closeWindow('favorite-modal')" class="w-3 h-3 rounded-full bg-mac-red hover:opacity-80 flex items-center justify-center group text-[8px] text-black">
+                        <i class="fa-solid fa-xmark opacity-0 group-hover:opacity-100"></i>
+                    </button>
+                </div>
+                <div class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-heart text-pink-500"></i> 덕질 대상 (최애) 추가
+                </div>
+                <div class="w-4"></div>
+            </div>
+            <form id="favorite-form" onsubmit="handleFavoriteSubmit(event)" class="p-5 space-y-4 text-xs">
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">최애 / 그룹 이름 *</label>
+                    <input type="text" id="fav-name" required placeholder="예: 뉴진스, 아이브, 최애배우" 
+                        class="w-full bg-slate-950/60 border border-white/10 rounded-xl p-2.5 text-slate-100 focus:outline-none focus:border-pink-500 transition">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1.5">아이콘 스티커</label>
+                    <div class="grid grid-cols-5 gap-2 text-center text-base" id="fav-icon-select">
+                        <button type="button" onclick="selectFavIcon('fa-heart')" class="fav-icon-opt p-2 rounded-xl border border-pink-500 bg-pink-500/20 text-pink-400"><i class="fa-solid fa-heart"></i></button>
+                        <button type="button" onclick="selectFavIcon('fa-star')" class="fav-icon-opt p-2 rounded-xl border border-white/10 hover:border-white/30 text-yellow-400"><i class="fa-solid fa-star"></i></button>
+                        <button type="button" onclick="selectFavIcon('fa-music')" class="fav-icon-opt p-2 rounded-xl border border-white/10 hover:border-white/30 text-purple-400"><i class="fa-solid fa-music"></i></button>
+                        <button type="button" onclick="selectFavIcon('fa-crown')" class="fav-icon-opt p-2 rounded-xl border border-white/10 hover:border-white/30 text-amber-400"><i class="fa-solid fa-crown"></i></button>
+                        <button type="button" onclick="selectFavIcon('fa-gem')" class="fav-icon-opt p-2 rounded-xl border border-white/10 hover:border-white/30 text-cyan-400"><i class="fa-solid fa-gem"></i></button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">포인트 컬러</label>
+                    <input type="color" id="fav-color" value="#ec4899" class="w-full h-9 bg-slate-950/60 border border-white/10 cursor-pointer rounded-xl p-1">
+                </div>
+                <div class="pt-2 flex justify-end space-x-2">
+                    <button type="button" onclick="closeWindow('favorite-modal')" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition">취소</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 font-bold text-white shadow-lg hover:brightness-110 transition">추가하기</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- SPOTLIGHT SEARCH MODAL -->
+        <div id="spotlight-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center pt-28">
+            <div class="w-[90%] max-w-xl mac-glass rounded-2xl shadow-2xl border border-white/20 overflow-hidden window-appear">
+                <div class="p-3 border-b border-white/10 flex items-center gap-3">
+                    <i class="fa-solid fa-magnifying-glass text-slate-400 text-lg ml-2"></i>
+                    <input type="text" id="spotlight-input" oninput="handleSpotlightSearch()" placeholder="덕질 아카이브 검색... (제목, 키워드, 메모)" 
+                        class="w-full bg-transparent text-slate-100 placeholder-slate-400 focus:outline-none text-sm">
+                    <!-- ESC 마우스 클릭 이벤트 지원 -->
+                    <button type="button" onclick="toggleSpotlight()" title="창 닫기 (ESC)"
+                        class="text-[10px] bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white px-2.5 py-1 rounded-md transition cursor-pointer flex items-center gap-1 font-mono active:scale-95">
+                        <span>ESC</span>
+                        <i class="fa-solid fa-xmark text-[9px]"></i>
+                    </button>
+                </div>
+                <div id="spotlight-results" class="max-h-80 overflow-y-auto p-2 divide-y divide-white/5">
+                    <!-- Dynamic Search items -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MACOS DOCK -->
+    <footer class="fixed bottom-3 left-1/2 -translate-x-1/2 z-40">
+        <div class="mac-glass px-4 py-2.5 rounded-2xl flex items-center space-x-3 border border-white/20 shadow-2xl">
+            <!-- Finder App -->
+            <button onclick="openWindow('archive-window')" class="dock-item relative group" title="파인더 (전체목록)">
+                <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-xl text-white shadow-md">
+                    <i class="fa-solid fa-folder-closed"></i>
+                </div>
+                <span class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">파인더</span>
+            </button>
+
+            <!-- Upload App -->
+            <button onclick="openWindow('upload-window')" class="dock-item relative group" title="새 기록 올리기">
+                <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-xl text-white shadow-md">
+                    <i class="fa-solid fa-camera"></i>
+                </div>
+                <span class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">기록하기</span>
+            </button>
+
+            <div class="w-px h-8 bg-white/20 mx-1"></div>
+
+            <!-- Spotlight Quick Search -->
+            <button onclick="toggleSpotlight()" class="dock-item relative group" title="스팟라이트 검색">
+                <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-xl text-white shadow-md">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </div>
+                <span class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">검색</span>
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        /* State Variables */
+        let archives = [];
+        let favorites = [];
+        let selectedFavIcon = 'fa-heart';
+        let selectedImageBase64 = '';
+        let currentDetailId = null;
+
+        /* Initial Setup */
+        window.onload = function() {
+            startClock();
+            loadFavorites();
+            loadArchives();
+            renderDesktopIcons();
+            renderFavoriteSelects();
+            renderArchives();
+            updateSidebarTags();
+            setupKeyboardShortcuts();
+        };
+
+        /* Update Menu Bar Live Clock */
+        function startClock() {
+            const updateTime = () => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const date = String(now.getDate()).padStart(2, '0');
+                const days = ['일', '월', '화', '수', '목', '금', '토'];
+                const dayName = days[now.getDay()];
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                
+                document.getElementById('current-time').innerText = 
+                    `${year}.${month}.${date} (${dayName}) ${hours}:${minutes}`;
+            };
+            updateTime();
+            setInterval(updateTime, 1000);
+        }
+
+        function openWindow(id) {
+            const win = document.getElementById(id);
+            if(win) {
+                win.classList.remove('hidden');
+                document.querySelectorAll('.window-appear').forEach(w => w.style.zIndex = '20');
+                win.style.zIndex = '35';
+            }
+        }
+
+        function closeWindow(id) {
+            const win = document.getElementById(id);
+            if(win) win.classList.add('hidden');
+        }
+
+        function minimizeWindow(id) {
+            closeWindow(id);
+        }
+
+        function maximizeWindow(id) {
+            const win = document.getElementById(id);
+            win.classList.toggle('w-[98%]');
+            win.classList.toggle('h-[92vh]');
+        }
+
+        function loadFavorites() {
+            const saved = localStorage.getItem('duck_favorites_data');
+            if(saved) {
+                try {
+                    favorites = JSON.parse(saved);
+                } catch(e) {
+                    favorites = [];
+                }
+            } else {
+                favorites = [];
+                saveFavorites();
+            }
+        }
+
+        function saveFavorites() {
+            localStorage.setItem('duck_favorites_data', JSON.stringify(favorites));
+        }
+
+        function renderDesktopIcons() {
+            const container = document.getElementById('desktop-icons');
+            container.innerHTML = '';
+
+            // 1. "나의 최애" (전체 덕질 대상의 모든 기록이 들어가는 메인 폴더)
+            const mainBtn = document.createElement('div');
+            mainBtn.className = 'desktop-icon-btn p-2 rounded-xl flex flex-col items-center justify-center cursor-pointer w-20 group relative';
+            mainBtn.onclick = () => openArchiveForFavorite('ALL');
+
+            mainBtn.innerHTML = `
+                <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl text-white shadow-lg relative border border-white/20 transition group-hover:scale-105 bg-gradient-to-br from-pink-500 via-purple-600 to-indigo-700">
+                    <i class="fa-solid fa-heart"></i>
+                    <span class="absolute -bottom-1 -right-1 bg-pink-400 text-slate-950 text-[8px] font-extrabold px-1 rounded-full border border-slate-900">ALL</span>
+                </div>
+                <span class="text-[11px] font-medium text-slate-100 mt-1.5 text-center truncate w-full drop-shadow-md group-hover:text-pink-300">
+                    나의 최애
+                </span>
+            `;
+            container.appendChild(mainBtn);
+
+            // 2. '최애 추가'를 통해 생성된 개별 최애 폴더들
+            favorites.forEach(fav => {
+                if (fav.id === 'fav_default') return;
+                const btn = document.createElement('div');
+                btn.className = 'desktop-icon-btn p-2 rounded-xl flex flex-col items-center justify-center cursor-pointer w-20 group relative';
+                btn.onclick = () => openArchiveForFavorite(fav.id);
+
+                btn.innerHTML = `
+                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl text-white shadow-lg relative border border-white/20 transition group-hover:scale-105" 
+                        style="background: linear-gradient(135deg, ${fav.color}dd 0%, #1e1b4b 100%);">
+                        <i class="fa-solid ${fav.icon || 'fa-heart'}"></i>
+                    </div>
+                    <span class="text-[11px] font-medium text-slate-100 mt-1.5 text-center truncate w-full drop-shadow-md group-hover:text-pink-300">
+                        ${fav.name}
+                    </span>
+                `;
+                container.appendChild(btn);
+            });
+
+            // 3. 최애 추가 버튼 폴더
+            const addBtn = document.createElement('div');
+            addBtn.className = 'desktop-icon-btn p-2 rounded-xl flex flex-col items-center justify-center cursor-pointer w-20 group border border-dashed border-white/20 hover:border-pink-500/50';
+            addBtn.onclick = () => openWindow('favorite-modal');
+            addBtn.innerHTML = `
+                <div class="w-12 h-12 rounded-2xl bg-slate-900/50 flex items-center justify-center text-lg text-slate-300 shadow-md group-hover:text-pink-400 group-hover:bg-slate-900">
+                    <i class="fa-solid fa-plus"></i>
+                </div>
+                <span class="text-[10px] font-medium text-slate-400 mt-1.5 text-center truncate w-full group-hover:text-slate-200">
+                    최애 추가
+                </span>
+            `;
+            container.appendChild(addBtn);
+        }
+
+        function renderFavoriteSelects() {
+            const filterSelect = document.getElementById('filter-favorite');
+            const itemSelect = document.getElementById('item-favorite');
+
+            let filterOptions = `<option value="ALL">전체 덕질 대상</option>`;
+            let itemOptions = `<option value="fav_general">기타 / 일반</option>`;
+
+            const customFavs = favorites.filter(f => f.id !== 'fav_default');
+
+            customFavs.forEach(fav => {
+                filterOptions += `<option value="${fav.id}">${fav.name}</option>`;
+                itemOptions += `<option value="${fav.id}">${fav.name}</option>`;
+            });
+
+            filterSelect.innerHTML = filterOptions;
+            itemSelect.innerHTML = itemOptions;
+        }
+
+        function openArchiveForFavorite(favId) {
+            document.getElementById('filter-favorite').value = favId;
+            filterArchives();
+            openWindow('archive-window');
+        }
+
+        function selectFavIcon(iconClass) {
+            selectedFavIcon = iconClass;
+            document.querySelectorAll('.fav-icon-opt').forEach(el => {
+                el.classList.remove('border-pink-500', 'bg-pink-500/20', 'text-pink-400');
+                el.classList.add('border-white/10');
+            });
+            event.currentTarget.classList.add('border-pink-500', 'bg-pink-500/20', 'text-pink-400');
+            event.currentTarget.classList.remove('border-white/10');
+        }
+
+        function handleFavoriteSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('fav-name').value.trim();
+            const color = document.getElementById('fav-color').value;
+
+            if(!name) return;
+
+            const newFav = {
+                id: 'fav_' + Date.now(),
+                name,
+                icon: selectedFavIcon,
+                color
+            };
+
+            favorites.push(newFav);
+            saveFavorites();
+            renderDesktopIcons();
+            renderFavoriteSelects();
+
+            document.getElementById('favorite-form').reset();
+            closeWindow('favorite-modal');
+        }
+
+        function loadArchives() {
+            const saved = localStorage.getItem('duck_archive_data');
+            if(saved) {
+                try {
+                    archives = JSON.parse(saved);
+                } catch(e) {
+                    archives = [];
+                }
+            } else {
+                archives = [];
+                saveArchives();
+            }
+        }
+
+        function saveArchives() {
+            localStorage.setItem('duck_archive_data', JSON.stringify(archives));
+        }
+
+        function renderArchives(itemsToRender = null) {
+            const grid = document.getElementById('archive-grid');
+            const emptyState = document.getElementById('empty-state');
+            const targetItems = itemsToRender || archives;
+
+            grid.innerHTML = '';
+
+            if (targetItems.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            targetItems.forEach(item => {
+                const favObj = (item.favoriteId === 'ALL' || item.favoriteId === 'fav_general' || !item.favoriteId)
+                    ? { name: '나의 최애' }
+                    : (favorites.find(f => f.id === item.favoriteId) || { name: '나의 최애' });
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden shadow-lg hover:border-pink-500/50 hover:scale-[1.02] transition cursor-pointer flex flex-col group';
+                card.onclick = () => openDetail(item.id);
+
+                const tagsHtml = item.keywords.map(k => 
+                    `<span class="px-2 py-0.5 text-[10px] rounded-md bg-white/10 text-slate-300">#${k.trim()}</span>`
+                ).join(' ');
+
+                card.innerHTML = `
+                    <div class="h-40 w-full overflow-hidden relative bg-black/30">
+                        <img src="${item.image || 'https://placehold.co/600x400/1e1b4b/FFF?text=No+Image'}" 
+                             alt="${item.title}" class="w-full h-full object-cover group-hover:scale-110 transition duration-300"
+                             onerror="this.src='https://placehold.co/600x400/1e1b4b/FFF?text=Image+Error'">
+                        <span class="absolute top-2 left-2 bg-purple-950/80 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] text-purple-300 font-medium">
+                            ${favObj.name}
+                        </span>
+                        <span class="absolute top-2 right-2 bg-slate-950/70 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] text-pink-300 font-medium">
+                            ${item.category || '기타'}
+                        </span>
+                    </div>
+                    <div class="p-3.5 flex-1 flex flex-col justify-between">
+                        <div>
+                            <p class="text-[10px] font-mono text-slate-400 mb-1"><i class="fa-regular fa-calendar mr-1"></i>${item.date}</p>
+                            <h4 class="font-bold text-sm text-slate-100 line-clamp-1 group-hover:text-pink-300 transition">${item.title}</h4>
+                            <p class="text-xs text-slate-400 mt-1 line-clamp-2">${item.notes || ''}</p>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-white/5 flex flex-wrap gap-1">
+                            ${tagsHtml}
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterArchives() {
+            const query = document.getElementById('archive-search').value.toLowerCase().trim();
+            const selectedFav = document.getElementById('filter-favorite').value;
+            const selectedDate = document.getElementById('filter-date').value;
+            const selectedCategory = document.getElementById('filter-category').value;
+
+            const filtered = archives.filter(item => {
+                // Favorite match
+                const matchFav = selectedFav === 'ALL' || item.favoriteId === selectedFav;
+
+                // Search match
+                const matchSearch = !query || 
+                    item.title.toLowerCase().includes(query) ||
+                    (item.notes && item.notes.toLowerCase().includes(query)) ||
+                    item.keywords.some(k => k.toLowerCase().includes(query.replace('#', '')));
+
+                // Date match
+                const matchDate = !selectedDate || item.date === selectedDate;
+
+                // Category match
+                const matchCategory = selectedCategory === 'ALL' || item.category === selectedCategory;
+
+                return matchFav && matchSearch && matchDate && matchCategory;
+            });
+
+            renderArchives(filtered);
+        }
+
+        function filterByTag(tag) {
+            document.getElementById('archive-search').value = `#${tag}`;
+            filterArchives();
+            openWindow('archive-window');
+        }
+
+        function resetFilters() {
+            document.getElementById('archive-search').value = '';
+            document.getElementById('filter-favorite').value = 'ALL';
+            document.getElementById('filter-date').value = '';
+            document.getElementById('filter-category').value = 'ALL';
+            renderArchives();
+        }
+
+        function updateSidebarTags() {
+            const tagContainer = document.getElementById('sidebar-tags');
+            const tagCounts = {};
+
+            archives.forEach(item => {
+                item.keywords.forEach(k => {
+                    const clean = k.trim();
+                    if(clean) tagCounts[clean] = (tagCounts[clean] || 0) + 1;
+                });
+            });
+
+            const sortedTags = Object.keys(tagCounts).sort((a,b) => tagCounts[b] - tagCounts[a]).slice(0, 8);
+
+            tagContainer.innerHTML = sortedTags.map(tag => `
+                <button onclick="filterByTag('${tag}')" class="w-full text-left px-2 py-1 rounded text-xs text-slate-300 hover:bg-white/10 hover:text-pink-300 transition flex items-center justify-between">
+                    <span># ${tag}</span>
+                    <span class="text-[10px] text-slate-500">${tagCounts[tag]}</span>
+                </button>
+            `).join('');
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    selectedImageBase64 = evt.target.result;
+                    document.getElementById('image-preview').src = selectedImageBase64;
+                    document.getElementById('preview-container').classList.remove('hidden');
+                    document.getElementById('upload-prompt').classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeImage(e) {
+            e.stopPropagation();
+            selectedImageBase64 = '';
+            document.getElementById('file-input').value = '';
+            document.getElementById('item-youtube-link').value = '';
+            document.getElementById('image-preview').src = '';
+            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('upload-prompt').classList.remove('hidden');
+        }
+
+        function handleYoutubeLink(url) {
+            handlePostLink(url);
+        }
+
+        function handlePostLink(url) {
+            const lowerUrl = url.toLowerCase();
+            
+            // 입력된 링크에 따라 카테고리 자동 설정
+            const categorySelect = document.getElementById('item-category');
+            if (lowerUrl.includes('instagram.com') || lowerUrl.includes('instagr.am')) {
+                categorySelect.value = '인스타 업로드';
+            } else if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
+                categorySelect.value = '트위터 업로드';
+            } else if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) {
+                categorySelect.value = '유튜브 업로드';
+            } else if (lowerUrl.includes('weverse.io')) {
+                categorySelect.value = '위버스/공식팬카페';
+            }
+
+            // 유튜브 영상일 경우 썸네일 자동 추출
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            if (match && match[2].length == 11) {
+                const videoId = match[2];
+                const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                
+                selectedImageBase64 = thumbnailUrl;
+                document.getElementById('image-preview').src = thumbnailUrl;
+                document.getElementById('preview-container').classList.remove('hidden');
+                document.getElementById('upload-prompt').classList.add('hidden');
+            }
+        }
+
+        function handleUpload(e) {
+            e.preventDefault();
+
+            const favoriteId = document.getElementById('item-favorite').value;
+            const title = document.getElementById('item-title').value;
+            const date = document.getElementById('item-date').value;
+            const category = document.getElementById('item-category').value;
+            const rawKeywords = document.getElementById('item-keywords').value;
+            const notes = document.getElementById('item-notes').value;
+            const youtubeLink = document.getElementById('item-youtube-link').value;
+
+            const keywords = rawKeywords.split(',')
+                .map(k => k.trim().replace(/^#/, ''))
+                .filter(k => k.length > 0);
+
+            const newItem = {
+                id: Date.now().toString(),
+                favoriteId,
+                title,
+                date,
+                category,
+                keywords,
+                notes,
+                youtubeLink: youtubeLink.trim(),
+                image: selectedImageBase64 || 'https://placehold.co/600x400/311042/FFF?text=No+Photo'
+            };
+
+            archives.unshift(newItem);
+            saveArchives();
+            renderArchives();
+            updateSidebarTags();
+
+            // Reset form
+            document.getElementById('upload-form').reset();
+            removeImage(e);
+
+            closeWindow('upload-window');
+            openWindow('archive-window');
+        }
+
+        function openDetail(id) {
+            const item = archives.find(a => a.id === id);
+            if(!item) return;
+
+            const favObj = (item.favoriteId === 'ALL' || item.favoriteId === 'fav_general' || !item.favoriteId)
+                ? { name: '나의 최애' }
+                : (favorites.find(f => f.id === item.favoriteId) || { name: '나의 최애' });
+
+            currentDetailId = id;
+            document.getElementById('detail-header-title').innerText = item.title;
+            document.getElementById('detail-favorite').innerText = favObj.name;
+            document.getElementById('detail-title').innerText = item.title;
+            document.getElementById('detail-date').innerText = item.date;
+            document.getElementById('detail-category').innerText = item.category || '기타';
+            document.getElementById('detail-notes').innerText = item.notes || '작성된 메모가 없습니다.';
+            document.getElementById('detail-img').src = item.image;
+
+            const linkBtn = document.getElementById('detail-link');
+            const linkIcon = document.getElementById('detail-link-icon');
+            const linkText = document.getElementById('detail-link-text');
+            const linkUrl = item.youtubeLink || '';
+
+            if(linkUrl) {
+                linkBtn.href = linkUrl;
+                linkBtn.classList.remove('hidden');
+                linkBtn.classList.add('inline-flex');
+
+                const lowerUrl = linkUrl.toLowerCase();
+                if (lowerUrl.includes('instagram.com') || lowerUrl.includes('instagr.am')) {
+                    linkIcon.className = 'fa-brands fa-instagram text-pink-400';
+                    linkText.innerText = '인스타그램 게시물 보러가기';
+                    linkBtn.className = 'inline-flex items-center gap-1.5 mb-3 text-[11px] font-semibold text-pink-400 hover:text-pink-300 transition bg-pink-500/10 px-2.5 py-1 rounded-lg w-fit border border-pink-500/20';
+                } else if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
+                    linkIcon.className = 'fa-brands fa-x-twitter text-sky-400';
+                    linkText.innerText = '트위터(X) 게시물 보러가기';
+                    linkBtn.className = 'inline-flex items-center gap-1.5 mb-3 text-[11px] font-semibold text-sky-400 hover:text-sky-300 transition bg-sky-500/10 px-2.5 py-1 rounded-lg w-fit border border-sky-500/20';
+                } else if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) {
+                    linkIcon.className = 'fa-brands fa-youtube text-red-400';
+                    linkText.innerText = '유튜브 영상 보러가기';
+                    linkBtn.className = 'inline-flex items-center gap-1.5 mb-3 text-[11px] font-semibold text-red-400 hover:text-red-300 transition bg-red-500/10 px-2.5 py-1 rounded-lg w-fit border border-red-500/20';
+                } else {
+                    linkIcon.className = 'fa-solid fa-arrow-up-right-from-square text-purple-400';
+                    linkText.innerText = '원본 링크 보러가기';
+                    linkBtn.className = 'inline-flex items-center gap-1.5 mb-3 text-[11px] font-semibold text-purple-400 hover:text-purple-300 transition bg-purple-500/10 px-2.5 py-1 rounded-lg w-fit border border-purple-500/20';
+                }
+            } else {
+                linkBtn.classList.add('hidden');
+                linkBtn.classList.remove('inline-flex');
+            }
+
+            const tagsContainer = document.getElementById('detail-tags');
+            tagsContainer.innerHTML = item.keywords.map(k => `
+                <span class="px-2.5 py-1 text-xs rounded-lg bg-white/10 text-slate-200"># ${k}</span>
+            `).join('');
+
+            openWindow('detail-window');
+        }
+
+        function deleteCurrentItem() {
+            if(!currentDetailId) return;
+            archives = archives.filter(a => a.id !== currentDetailId);
+            saveArchives();
+            renderArchives();
+            updateSidebarTags();
+            closeWindow('detail-window');
+        }
+
+        function toggleSpotlight() {
+            const modal = document.getElementById('spotlight-modal');
+            const input = document.getElementById('spotlight-input');
+            if(modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                input.value = '';
+                input.focus();
+                handleSpotlightSearch();
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function handleSpotlightSearch() {
+            const query = document.getElementById('spotlight-input').value.toLowerCase().trim();
+            const resultsContainer = document.getElementById('spotlight-results');
+
+            if(!query) {
+                resultsContainer.innerHTML = `<p class="p-4 text-center text-xs text-slate-400">검색어를 입력하면 전체 아카이브를 탐색합니다.</p>`;
+                return;
+            }
+
+            const matches = archives.filter(item => 
+                item.title.toLowerCase().includes(query) ||
+                (item.notes && item.notes.toLowerCase().includes(query)) ||
+                item.keywords.some(k => k.toLowerCase().includes(query))
+            );
+
+            if(matches.length === 0) {
+                resultsContainer.innerHTML = `<p class="p-4 text-center text-xs text-slate-500">일치하는 결과가 없습니다.</p>`;
+                return;
+            }
+
+            resultsContainer.innerHTML = matches.map(item => `
+                <div onclick="openDetail('${item.id}'); toggleSpotlight();" class="p-2 hover:bg-white/10 rounded-xl cursor-pointer transition flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <img src="${item.image}" class="w-10 h-10 object-cover rounded-lg">
+                        <div>
+                            <h5 class="text-xs font-bold text-slate-100">${item.title}</h5>
+                            <p class="text-[10px] text-slate-400">${item.date} · ${item.category}</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-xs text-slate-500"></i>
+                </div>
+            `).join('');
+        }
+
+        function setupKeyboardShortcuts() {
+            window.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                    e.preventDefault();
+                    toggleSpotlight();
+                }
+                if (e.key === 'Escape') {
+                    document.getElementById('spotlight-modal').classList.add('hidden');
+                }
+            });
+        }
+
+        function exportData() {
+            const backupPayload = {
+                archives,
+                favorites
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupPayload, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `duck_archive_backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if(imported.archives && imported.favorites) {
+                        archives = imported.archives;
+                        favorites = imported.favorites;
+                    } else if(Array.isArray(imported)) {
+                        archives = imported;
+                    }
+                    saveFavorites();
+                    saveArchives();
+                    renderDesktopIcons();
+                    renderFavoriteSelects();
+                    renderArchives();
+                    updateSidebarTags();
+                    alert('데이터가 성공적으로 불러와졌습니다!');
+                } catch(err) {
+                    alert('올바르지 않은 JSON 데이터 파일입니다.');
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
